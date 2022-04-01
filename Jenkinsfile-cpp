@@ -1,0 +1,316 @@
+@Library('DecsecopsJSL') _
+
+pipeline {
+    agent {
+       label 'jenkinsNode'
+    }
+    stages {
+		stage ('Prepare') {
+    		steps {
+    		    script{ 
+                    //Read Yaml config file
+    	            def config = commonStagesCI.readYaml("${workspace}/config.yaml")
+
+                    gitCred = config.git_repo.Cred
+                    
+                    //Project Details
+					projectName = config.projectDetails.name
+                    projectLanguage = config.projectDetails.language
+                    projectVersion = config.projectDetails.version
+                    reportsPath = config.projectDetails.reportsPath
+                    
+                    languageVersion = config.build.version
+                    buildTool = config.build.buildTool
+                    
+                    //For Ant Build
+                    antBuildFile = config.build.antBuildFile
+                    antCompileTarget = config.build.antCompileTarget
+                    antUnitTestTarget = config.build.antUnitTestTarget
+                    
+                    //dotNet build
+                    dotNetSolutionPath = config.build.dotNetSolutionPath
+                    dotNetAppType = config.build.dotNetAppType
+                    
+                    //cmake for C CPP projects
+                    cmakeInstallation = config.build.cmakeInstallation
+                    cmakeBuildDir = config.build.cmakeBuildDir
+                    cmakeBuildType = config.build.cmakeBuildType
+                    cmakeGenerator = config.build.cmakeGenerator
+                    
+                    //unit-test details
+                    skipUnitTestCases = config.unitTestCases.skipUnitTestCases
+                    skipPublishingChecks = config.unitTestCases.skipPublishingChecks
+                    jUnitTestResultsPath = config.unitTestCases.jUnitTestResultsPath
+                    pythonUnitTestFileLocation = config.unitTestCases.pythonUnitTestFileLocation
+                    dotNetUnitTestSrcPath = config.unitTestCases.dotNetUnitTestSrcPath
+                    unitTestPassPercentage = config.unitTestCases.passPercentage
+                    ctestJunitXSLPath = config.unitTestCases.ctestJunitXSLPath
+					
+                    //Zephyr server details
+                    skipZephyrReports = config.zephyr.skipZephyrReports
+                    zephyrServerAddress = config.zephyr.serverAddress
+                    zephyrProjectKey = config.zephyr.projectKey
+                    zephyrReleaseKey = config.zephyr.releaseKey
+                    zephyrParserTemplateKey = config.zephyr.parserTemplateKey
+                    zephyrCycleDuration = config.zephyr.cycleDuration
+                    zephyrCycleKey = config.zephyr.cycleKey
+                    zephyrCyclePrefix = config.zephyr.cyclePrefix
+                    zephyrCreatePackage = config.zephyr.createPackage
+                    
+                    //Jira Details
+                    jiraSite = config.jira.site
+                    jiraProjectKey = config.jira.projectKey
+                    jiraIssueType = config.jira.issueType
+                    jiraAutoRaiseIssue = config.jira.autoRaiseIssue
+                    jiraAutoResolveIssue = config.jira.autoResolveIssue
+                    jiraAutoUnlinkIssue = config.jira.autoUnlinkIssue
+
+                    //serviceNow Details
+                    serviceNowURL = config.serviceNow.URL
+                    serviceNowCredID = config.serviceNow.credID
+                    
+                    //Sonar details
+                    skipSonarAnalysis = config.sonar.skipSonarAnalysis
+                    sonarProjectAuthToken = config.sonar.projectAuthToken
+                    sonarProjectKey = config.sonar.projectKey
+					sonarScannerToolName = config.sonar.sonarScannerToolName
+					sonarqubeInstanceName = config.sonar.sonarqubeInstanceName
+                    qgSleepTime = config.sonar.sleepTime
+                    
+                    //Trivy Scan Details
+                    skipTrivyScan = config.trivy.skipTrivyScan
+                    trivyCleanImgPath = config.trivy.trivyCleanImgPath
+                    trivyCleanImgName = config.trivy.trivyCleanImgName
+                    trivyCleanImgVersion = config.trivy.trivyCleanImgVersion
+                    trivySeverity = config.trivy.severity
+                    
+                    //Accurics Scan Details
+                    skipAccuricsReport = config.accurics.skipAccuricsReport
+                    accuricsConfigFilesLocation = config.accurics.configFilesLocation
+                    helmLocation = config.accurics.helmLocation
+                    terraformLocation = config.accurics.terrafomLocation
+                    
+                    //Helm chart Details
+                    skipHelmPush = config.helm.skipHelmPush
+                    helmChartLocation = config.helm.chartLocation
+                    
+                    //artifactory Server Details
+                    artifactoryServerID = config.artifactory.artifactoryServerID
+                    artifactoryServerURL = config.artifactory.URL
+                    artifactoryServerCred = config.artifactory.credID
+                    artifactoryDockerRepoName = config.artifactory.dockerRepoName
+                    artifactoryHelmRepoName = config.artifactory.helmRepoName
+                    artifactoryRegistryTagURL = config.artifactory.registryTagURL
+                    
+                    //Docker build details
+                    skipImagePush = config.docker.skipImagePush
+                    dockerFileLocation = config.docker.dockerFileLocation
+                    imageName = config.docker.imageName
+                    tagName = config.docker.tagName
+                    
+                    //Code Merge Details
+                    skipCodeMerge = config.codeMerge.skipCodeMerge
+                    srcBranch = config.codeMerge.srcBranch
+                    destBranch = config.codeMerge.destBranch
+                    
+                    //e-mail details
+                    emailToList = config.emailIDs.toList 
+                    emailCCList = config.emailIDs.ccList
+
+                    // Create Reports path for storing build reports
+                    sh "mkdir ${workspace}/${reportsPath} -p "
+    		    }
+    		}
+        }
+
+        stage ('Build-Project') {
+    		steps {
+    		    script{ 
+    	            sh "echo building project"
+					sh "mkdir ${workspace}/${reportsPath} -p "
+    	            if ("${projectLanguage}".equalsIgnoreCase("C") || "${projectLanguage}".equalsIgnoreCase("CPP") ) {
+						cppcSL.buildWithCmake(cmakeBuildDir: "${cmakeBuildDir}", cmakeBuildType: "${cmakeBuildType}", cmakeGenerator: "${cmakeGenerator}", cmakeInstallation: "${cmakeInstallation}")
+					}
+    		    }
+    		}
+    	}
+    	stage('Run-Unit-Test-Cases') {
+    		when {
+    			expression {"${skipUnitTestCases}" != 'true'}
+    		}
+    		steps {
+    			dir("${workspace}"){
+    				script {
+    				    if ("${projectLanguage}".equalsIgnoreCase("C") || "${projectLanguage}".equalsIgnoreCase("CPP") ) {
+							cppcSL.runCTest(cmakeBuildDir: "${cmakeBuildDir}", cmakeInstallation: "${cmakeInstallation}" ,ctestJunitXSLPath: "${ctestJunitXSLPath}")
+						}
+    				}
+    			}
+    		}
+        }
+        stage('Zephyr-Reports') {
+            when {
+                expression {"${skipZephyrReports}" != 'true' && "${skipUnitTestCases}" != 'true'}
+            }
+            steps {
+                dir("${workspace}"){
+                    script {
+                        zeeReporter serverAddress: "${zephyrServerAddress}", projectKey: "${zephyrProjectKey}", releaseKey: "${zephyrReleaseKey}", resultXmlFilePath: "${jUnitTestResultsPath}/*.xml", createPackage: "${zephyrCreatePackage}", cycleDuration: "${zephyrCycleDuration}", cycleKey: "${zephyrCycleKey}", cyclePrefix: '', parserTemplateKey: "${zephyrParserTemplateKey}"
+            	    }
+                }
+            }
+        }
+        stage('Create-Jira-Ticket-For-Failed-Unit-Test-Cases') {
+            when {
+                expression {"${skipUnitTestCases}" != 'true'}
+            }
+            steps {
+                dir("${workspace}"){
+                    script {
+                        commonStagesCI.createJiraTicketForFailedTestCases(jUnitTestResultsPath: "${jUnitTestResultsPath}", jiraProjectKey:"${jiraProjectKey}", jiraIssueType: "${jiraIssueType}", jiraAutoRaiseIssue: "${jiraAutoRaiseIssue}", jiraAutoResolveIssue: "${jiraAutoResolveIssue}", jiraAutoUnlinkIssue: "${jiraAutoUnlinkIssue}")
+                    }    
+                }
+            }
+        }
+        stage('Unit-Test-QualityGate') {
+            when {
+                expression {"${skipUnitTestCases}" != 'true'}
+            }
+            steps {
+                dir("${workspace}"){
+                    script {
+                        commonStagesCI.checkJunitPassPercentage(jUnitTestResultsPath: "${jUnitTestResultsPath}", unitTestPassPercentage: "${unitTestPassPercentage}" )
+                    }
+                }
+            }
+        }    
+        stage('SonarAnalysis-And-QualityGate') {
+            when {
+                expression {"${skipSonarAnalysis}" != 'true'}
+            }
+            steps {
+                script {
+                    dir("${workspace}"){
+                        if ("${projectLanguage}".equalsIgnoreCase("Java") || "${projectLanguage}".equalsIgnoreCase("Python") ||
+                                    "${projectLanguage}".equalsIgnoreCase("JavaScript") || "${projectLanguage}".equalsIgnoreCase("TypeScript") ||
+									"${projectLanguage}".equalsIgnoreCase("c") || "${projectLanguage}".equalsIgnoreCase("cpp") || "${projectLanguage}".equalsIgnoreCase("go")) {
+                        
+                            commonStagesCI.runSonarScanner(sonarProjectKey: "${sonarProjectKey}", sonarProjectAuthToken: "${sonarProjectAuthToken}", sonarScannerToolName: "${sonarScannerToolName}", sonarqubeInstanceName: "${sonarqubeInstanceName}", )
+                        }
+						if ("${projectLanguage}".equalsIgnoreCase("DotNet") && "${dotNetAppType}".equalsIgnoreCase("DotNetCore")) {
+							commonStagesCI.runSonarScannerMSBuildDotNetCore(sonarMSBuildScannerType: "${sonarMSBuildScannerType}", sonarProjectAuthToken: "${sonarProjectAuthToken}", sonarScannerToolName: "${sonarScannerToolName}", sonarqubeInstanceName: "${sonarqubeInstanceName}", )
+						}
+						//check Sonarqube quality gate 
+                        commonStagesCI.checkSonarQualityGate(qgSleepTime: "${qgSleepTime}" )
+                    }
+                }
+            }
+        }
+        stage('Docker-Build') {
+            steps {
+                dir("${workspace}"){
+                    script {
+                        commonStagesCI.dockerBuildImage(dockerFileLocation: "$workspace/${dockerFileLocation}", imageName: "${imageName}")
+    			    }
+                }	
+            }
+        }
+        stage ('Artifactory configuration') {
+            steps {
+                script{
+                    commonStagesCI.configureArtifactory(artifactoryServerID: "${artifactoryServerID}", artifactoryServerURL: "${artifactoryServerURL}", artifactoryServerCred: "${artifactoryServerCred}")
+                }    
+            }
+        }
+        stage('Trivy-Scan') {
+            when {
+                expression {"${skipTrivyScan}" != 'true' }
+            }
+            steps {
+                dir("${workspace}"){
+                    script {
+                        commonStagesCI.imgPullFromArtifactory(artifactoryServerID: "${artifactoryServerID}", artifactoryRegistryTagURL: "${artifactoryRegistryTagURL}", artifactoryDockerRepoName: "${artifactoryDockerRepoName}", imageName: "aquasec-trivy", imageTag: "0.19.2")
+                        def trivyCleanImgName = "${artifactoryRegistryTagURL}/${artifactoryDockerRepoName}/${trivyCleanImgName}"
+                        commonStagesCI.trivyScan(trivyCleanImgName: "${trivyCleanImgName}", trivyCleanImgVersion: "${trivyCleanImgVersion}", imageName: "${imageName}",  imageTag: "latest", severity: "${trivySeverity}")
+                    }
+                }
+            }
+        }
+        stage ('Image-Push-To-Artifactory') { 
+            steps {
+                script{
+                    commonStagesCI.imgPushToArtifactory(artifactoryServerID: "${artifactoryServerID}", imageName: "${imageName}", artifactoryDockerRepoName: "${artifactoryDockerRepoName}", artifactoryRegistryTagURL: "${artifactoryRegistryTagURL}")
+                }    
+            }
+        }
+        stage('Accurics-Reports') {
+            when {
+                expression {"${skipAccuricsReport}" != 'true'}
+            }
+            steps {
+                dir("${workspace}") {
+                    script {
+                        commonStagesCI.accuricsReport(accuricsConfigFilesLocation: "${accuricsConfigFilesLocation}", terraformLocation: "${terraformLocation}", helmLocation: "${helmLocation}", reportsPath: "${reportsPath}")
+                    }
+                }
+            }
+        }
+        stage ('Helm-Push-To-Artifactory') {
+            steps {
+                dir("${workspace}/${helmChartLocation}") {
+                    script{
+                        commonStagesCI.helmPushToArtifactory(artifactoryServerURL: "${artifactoryServerURL}", artifactoryServerCred: "${artifactoryServerCred}", artifactoryHelmRepoName: "${artifactoryHelmRepoName}", chartName: "${projectName}-${projectVersion}")
+                    }
+                }         
+            }
+        }
+        stage('Merge-Code-To-Release-Branch') {
+            when {
+                expression {"${skipCodeMerge}" != 'true'}
+            }
+            steps {
+                dir("${workspace}") {
+                    script {
+                        commonStagesCI.mergeCodeToBranch(gitRepoCred: "${gitCred}", srcBranch: "${srcBranch}", destBranch: "${destBranch}") 
+    			    }
+                }	
+            }
+        }
+    }
+
+    post {
+        aborted {
+            script{
+				def jiraIssueSummary = "ABORTED build ${currentBuild.displayName} for the  JOB ${env.JOB_NAME}"
+				def jiraIssueDescription = "Build log is here: ${env.BUILD_URL}/console "
+                commonStagesCI.createJiraTicket(jiraSite: "${jiraSite}", jiraProjectKey: "${jiraProjectKey}", jiraIssueType: "${jiraIssueType}", jiraIssueSummary: "${jiraIssueSummary}", jiraIssueDescription: "${jiraIssueDescription}")
+                commonStagesCI.createServiceNowTicket(serviceNowURL: "${serviceNowURL}", serviceNowCredID: "${serviceNowCredID}", shortDescription: "${jiraIssueSummary}" )
+    		      
+            }		
+        }
+        failure {
+            script{
+                def jiraIssueSummary = "FAILED build ${currentBuild.displayName} for the  JOB ${env.JOB_NAME}"
+				def jiraIssueDescription = "Build log is here: ${env.BUILD_URL}/console "
+				commonStagesCI.createJiraTicket(jiraSite: "${jiraSite}", jiraProjectKey: "${jiraProjectKey}", jiraIssueType: "${jiraIssueType}", jiraIssueSummary: "${jiraIssueSummary}", jiraIssueDescription: "${jiraIssueDescription}")
+                commonStagesCI.createServiceNowTicket(serviceNowURL: "${serviceNowURL}", serviceNowCredID: "${serviceNowCredID}", shortDescription: "${jiraIssueSummary}" )
+			}		
+        }
+        always{
+            script{
+                sh """
+                    mkdir /tmp/${reportsPath}/ -p
+                    mkdir /tmp/${reportsPath}/${env.JOB_NAME} -p
+                    mkdir /tmp/${reportsPath}/${env.JOB_NAME}/${env.BUILD_NUMBER} -p
+                    cp ${workspace}/${reportsPath}/  /tmp/${reportsPath}/${env.JOB_NAME}/${env.BUILD_NUMBER} -r
+                    echo This build Reports are available on the Location: /tmp/${reportsPath}/${env.JOB_NAME}/${env.BUILD_NUMBER}
+                """
+				def emailSubject = "JOB ${env.JOB_NAME} , BUILD ${currentBuild.displayName} completed with status: ${currentBuild.currentResult}"
+                commonStagesCI.sendEmailNotification(emailToList: "${emailToList}", emailSubject: "${emailSubject}", reportsPath: "${reportsPath}")				   
+            
+				sh "echo Cleaning workspace"
+                cleanWs notFailBuild: true
+            }	
+        }
+    }
+}

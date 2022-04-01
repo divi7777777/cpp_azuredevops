@@ -1,0 +1,160 @@
+git_repo:
+  URL: >-
+    https://bitbucket.devsecops.cf.unisys-waf.com/scm/devsecops/cppsample.git
+  Cred: CF-DevSecOps-Admin-Cred
+  Branch: dev
+
+jsl:
+  className: commonStagesCI 
+    
+projectDetails:
+  name: CppApp                # Project Name
+  version: '1.0'              # Project Version
+  language: cpp               # Project Language
+  reportsPath: buildReports   # Jenkins Job Reports Directory
+
+build:
+  buildTool: cmake                          # Project Build Tool
+  
+  # For Java Ant build applications 
+  antBuildFile: build.xml                   # Ant build file location
+  antCompileTarget: compile                 # Ant build/compile location
+  antUnitTestTarget: unitTest               # Ant JUnit reports path
+  
+  # For dotNet applications 
+  dotNetAppType: DotNetCore                    # Sonarqube analysis for dotnet application type
+  dotNetSolutionPath: TestingDotNETCore.sln    # dotNet application solution path
+  
+  # For C/C++ applications  
+  cmakeInstallation: InSearchPath           # Jenkins cmake tool configuration name 
+  cmakeBuildDir: build                      # cmake build Directory
+  cmakeBuildType: Release                   # cmake build type. Supports: Debug/Release
+  cmakeGenerator: Unix Makefiles            # cmake Generator type 
+
+unitTestCases:
+  skipUnitTestCases: false                       # Set the value to 'true' to skip this stage.
+  skipPublishingChecks: true                     # To handle the junit publishing error 
+  jUnitTestResultsPath: build                    # jUnit Test Results Path
+  dotNetUnitTestSrcPath: app-test                # DotNet application unit test directory   
+  passPercentage: 50                             # Jenkins Jon Aborts if unit test pass percentage is less than this value 
+  pythonUnitTestFileLocation: src/manage.py      # python manage.py location
+  ctestJunitXSLPath: ctest2junit.xsl             # for C/C++ ctest2junit.xsl location. this file is used to convert ctest to Junit 
+
+jira:
+  site: jira                      # Jira Jenkins configuration name 
+  projectKey: DEVSECOPS           # Jira Project Key
+  issueType: '10004'              # Jira Issue Type Key
+  autoRaiseIssue: true            # Create Jira Tickets for failed Test cases if the value set to 'true'
+  autoResolveIssue: false
+  autoUnlinkIssue: false
+  
+serviceNow:
+  URL: >-                             # ServiceNow (ITSM) URL
+    https://dev116899.service-now.com/api/now/table/incident
+  credID: CF-DevSecOps-ServiceNow-Cred
+  
+
+zephyr:
+  skipZephyrReports: true                                           # Set the value to 'true' to skip this stage.
+  serverAddress: https://zephyr.test.devsecops.cf.unisys-waf.com    # Zephyr server URL.
+  projectKey: 4                                                     # Zephyr projectKey  
+  releaseKey: 8                                                     # Zephyr project ReleaseKey  
+  parserTemplateKey: 1
+  cycleDuration: 30 days
+  cycleKey: 2
+  cyclePrefix: ''
+  createPackage: true
+
+sonar:
+  skipSonarAnalysis: true                         # Set the value to 'true' to skip this stage.
+  sonarqubeInstanceName: sonarqube                # Jenkins System Sonarqube Configuration name
+  sonarScannerToolName: sonarqube-scanner         # Jenkins global tool sonar-scanner configuration name
+  sonarScannerMSBuildScanType: DotNetCore         # SonarScannerMsBuild scan type:  DotNetCore, DotNetFramework, 
+  projectAuthToken: SonarQubeAuthToken            # sonarque project access token 
+  projectKey:  cpp-App                            # sonarque project key
+  sleepTime: 20                                   # quality gate will wait for this time 
+
+accurics:                                     # Set the value to 'true' to skip this stage.
+  skipAccuricsReport: false
+  configFilesLocation: accuricsConfigFiles
+  helmLocation: helm
+  terrafomLocation: terraform
+
+docker:
+  skipImagePush: false                        # Set the value to 'true' to skip this stage.
+  dockerFileLocation: Dockerfile
+  imageName: cpp-app                          # image name must be lowercase
+  tagName: '1.0'
+
+harbor:
+  URL: https://harbor.devsecops.cf.unisys-waf.com  
+  tagURL: harbor.devsecops.cf.unisys-waf.com
+  credID: DevSecOps-Harbor-Cred
+  repoName: devsecops
+
+artifactory:
+  URL: https://artifactory.devsecops.cf.unisys-waf.com
+  artifactoryServerID: "artifactory-1"
+  registryTagURL: artifactory.devsecops.cf.unisys-waf.com
+  credID: jfrog-admin-token
+  dockerRepoName: devsecops-docker
+  helmRepoName: devsecops-helm
+
+helm:                                           # Set the value to 'true' to skip this stage.
+  skipHelmPush: false
+  chartLocation: helm
+
+trivy:
+  skipTrivyScan: true                                                               # Set the value to 'true' to skip this stage.
+  trivyCleanImgName: aquasec-trivy                                                  # Trivy image name
+  trivyCleanImgVersion: 0.19.2                                                      # Trivy image version/tag
+  severity: HIGH,CRITICAL                                                           # provide the vulnarability seviority levels. Pipeline will stop if provided seviriry level vulnarabilities found    
+
+codeMerge:                                 
+  skipCodeMerge: false          # Set the value to 'true' to skip this stage.
+  srcBranch: dev                # source branch name
+  destBranch: release           # merge branch name.
+
+emailIDs:
+  skipEmailNotification: false                                    # Set the value to 'true' to skip this stage.
+  toList: satish541@gmail.com,bhawana.gupta@unisys.com            # provide email IDs for ToList 
+  ccList: vishal@gmail.com                                        # provide email IDs for CcList  
+
+# CD Stages
+ 
+functionalTest:
+  skipFunctionalTests: false                                                              # Set the value to 'true' to skip this stage.
+  functionalTestPath: functionalTest                                                      # Funtional Test script relative path  
+  functionalTestGitRepo: >-                                                               # Functional Test Repository URL      
+    https://bitbucket.devsecops.cf.unisys-waf.com/scm/devsecops/functionaltestsample.git  
+  functionalTestGitCred: CF-DevSecOps-Admin-Cred                                          # Functional Test Repository credentials ID  
+  functionalTestGitBranch: dev                                                            # Functional Test Repository branch    
+  functionalTestResultsPath: target/surefire-reports                                      # Functional Test reports Path     
+  passPercentage: 0                                                                       # If passed test cases are less than provided percentage, the pipeline will stop.  
+
+performanceTest:                                     
+  skipPerformanceTest: false                        # Set the value to 'true' to skip this stage.
+  jmeter_Home: /home/ubuntu/apache-jmeter-5.4.1     # install the jmeter in the Jenkins Node and provide the installtion path 
+  testScriptsPath: performanceTestScript            # performance Test Script folder relative path
+  jmxFile: JMeterScript.jmx                         # performance Test Script file name
+  jtlFile: report.jtl                               # jMeter will generate the report in the file
+  avgReponseTime: 1500                              # Jenkins Job will get failed if the Avarage Response time is greater than provided value. 
+  percentageOfErrors: 10                             # Jenkins Job will get failed if the percentage of errors is greater than provided value. 
+  
+burpScan:                                         
+  skipBurpScan: true                       # Set the value to 'true' to skip this stage.    
+  burpURL: >-                               # Burp Suite application URL.           
+    http://ec2-3-142-239-99.us-east-2.compute.amazonaws.com:8080/api/qIvRnpwvaevch7nvLHrBSebIzVv1Vw9w/v0.1/scan
+  burpAppURL: https://jenkins.devsecops.cf.unisys-waf.com/   # project application URL. 
+
+netsparkerScan:                                          
+  skiNetsparkerScan: true                                    # Set the value to 'true' to skip this stage. 
+  ncScanType: Incremental                                     # Netsparker scan type   
+  ncWebsiteId: 98cd6ced-b809-4397-6c56-ad9c0170f9ca           # Netsparker website ID
+  ncProfileId: ab0f3851-ba55-4b66-30ca-ad9c0178022a           # Netsparker website profile ID
+  ncStopScan: true
+  ncSeverity: DoNotFail
+  ncDoNotFail: true
+  ncConfirmed: false
+  ncIgnoreFalsePositive: false
+  ncIgnoreRiskAccepted: false
